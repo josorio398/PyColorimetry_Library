@@ -22,9 +22,16 @@ from segment_anything import SamAutomaticMaskGenerator
 
 from skimage.color import rgb2xyz
 from skimage.color import xyz2lab
+from skimage import color
 from skimage.color.colorconv import _prepare_colorarray
-from numpy import sqrt, arctan2, degrees
 
+from numpy import sqrt, arctan2, degrees
+import plotly.graph_objects as go
+
+from sklearn.cluster import KMeans
+from sklearn.impute import SimpleImputer
+
+from scipy.spatial.distance import cdist
 
 import warnings
 
@@ -320,7 +327,7 @@ class Images:
         df = pd.DataFrame(data, columns=['Mask', 'R', 'G', 'B'])
 
         return df
-        
+
     def rgb2xyz_custom(self, target_mask_index, reference_mask_matrix, masks, xyz_from_rgb=None):
         # Calculate average RGB values using RGB_mask function
         avg_RGB = self.RGB_mask(target_mask_index, reference_mask_matrix, masks)
@@ -358,7 +365,7 @@ class Images:
         """
         # Convert from RGB to XYZ
         xyz = self.rgb2xyz_custom(target_mask_index, reference_mask_matrix, masks, xyz_from_rgb)
-        
+
         # Normalize XYZ values to the range [0,1]
         xyz /= 100
 
@@ -456,3 +463,328 @@ class Images:
 
         # Return the DataFrame
         return df
+
+
+class Data:
+    def __init__(self, data):
+        if isinstance(data, pd.DataFrame):
+            self.data = data
+        elif isinstance(data, str):
+            self.data = pd.read_excel(data)
+            for column in ['R', 'G', 'B', 'L', 'a', 'b', 'C', 'H', 'Area']:
+                self.data[column] = self.data[column].apply(lambda x: float(str(x).replace(',', '.')))
+        else:
+            raise ValueError('Data should be a pandas DataFrame or a string path to an Excel file.')
+
+    @property
+    def PlotCIELab(self):
+        # Get the LAB colors directly from the DataFrame
+        lab_colors = self.data[['L', 'a', 'b']].values
+        rgb_colors = self.data[['R', 'G', 'B']].values / 255.0  # Normalize to [0, 1]
+
+        # Prepare the mask indices as custom data
+        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+
+        # Create the 3D plot
+        fig = go.Figure()
+
+        # Add the colors
+        fig.add_trace(go.Scatter3d(
+            x=lab_colors[:,1],
+            y=lab_colors[:,2],
+            z=lab_colors[:,0],
+            customdata=customdata,  # Add the mask indices as custom data
+            mode='markers',
+            marker=dict(
+                size=6,
+                color=['rgb({},{},{})'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in rgb_colors],
+                opacity=1.0
+            ),
+            hovertemplate="<b>Filename</b>: %{customdata[0]}<br><b>Mask Index</b>: %{customdata[1]}<br><b>L</b>: %{customdata[2]:.2f}<br><b>A</b>: %{customdata[3]:.2f}<br><b>B</b>: %{customdata[4]:.2f}<br><b>C</b>: %{customdata[5]:.2f}<br><b>H</b>: %{customdata[6]:.2f}<extra></extra>",
+        ))
+
+        # Add the cutting ellipses
+        theta = np.linspace(0, 2*np.pi, 100)
+
+        # AB plane centered at (0,0,50)
+        x = 127 * np.cos(theta)
+        y = 127 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=x, y=y, z=50*np.ones_like(x), mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # LB plane centered at (0,0,50)
+        x = 127 * np.cos(theta)
+        z = 50 + 50 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=x, y=0*np.ones_like(x), z=z, mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # LA plane centered at (0,0,50)
+        y = 127 * np.cos(theta)
+        z = 50 + 50 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=0*np.ones_like(y), y=y, z=z, mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # Create the AB plane as a 3D mesh
+        t = np.linspace(0, 1, 100)  # Parameter for interpolation
+        X, Y = np.meshgrid(np.linspace(-127, 127, 100), np.linspace(-127, 127, 100))  # Create a grid over the entire AB space
+        Z = 50 * np.ones_like(X)
+        fig.add_trace(go.Mesh3d(x=X.flatten(), y=Y.flatten(), z=Z.flatten(), opacity=0.2, color='gray',hoverinfo='skip'))
+
+        # Añade los segmentos de línea
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 127], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento AB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, -127], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento AB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[100, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[0, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LB
+        fig.add_trace(go.Scatter3d(x=[0, 127], y=[0, 0], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LA
+        fig.add_trace(go.Scatter3d(x=[0, -127], y=[0, 0], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LA
+
+        # Define los límites del gráfico y los nombres de los ejes
+        fig.update_layout(
+            autosize=False,
+            width=1000,
+            height=1000,
+            scene=dict(
+                xaxis=dict(range=[-128, 128], title='a'),
+                yaxis=dict(range=[-128, 128], title='b'),
+                zaxis=dict(range=[0, 100], title='L')
+            ),
+        )
+
+        # Muestra el gráfico
+        fig.show()
+
+
+    @property
+    def Plotab(self):
+        # Get the AB values directly from the DataFrame
+        ab_values = self.data[['a', 'b']].values
+        rgb_colors = self.data[['R', 'G', 'B']].values / 255.0  # Normalize to [0, 1]
+
+        # Prepare the mask indices as custom data
+        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+
+        # Create the 2D plot
+        fig = go.Figure()
+
+        # Add the colors
+        fig.add_trace(go.Scatter(
+            x=ab_values[:,0],
+            y=ab_values[:,1],
+            customdata=customdata,  # Add the mask indices as custom data
+            mode='markers',
+            marker=dict(
+                size=6,
+                color=['rgb({},{},{})'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in rgb_colors],
+                opacity=1.0
+            ),
+            hovertemplate="<b>Filename</b>: %{customdata[0]}<br><b>Mask Index</b>: %{customdata[1]}<br><b>L</b>: %{customdata[2]:.2f}<br><b>A</b>: %{customdata[3]:.2f}<br><b>B</b>: %{customdata[4]:.2f}<br><b>C</b>: %{customdata[5]:.2f}<br><b>H</b>: %{customdata[6]:.2f}<extra></extra>",
+        ))
+
+        # Add the line segments
+        fig.add_trace(go.Scatter(x=[0, 0], y=[-127, 127], mode='lines', line=dict(color='black', width=1)))  # Vertical segment
+        fig.add_trace(go.Scatter(x=[-127, 127], y=[0, 0], mode='lines', line=dict(color='black', width=1)))  # Horizontal segment
+
+        # Add lines from the center to the circumference every 10 degrees
+        for theta in np.arange(0, 2 * np.pi, np.pi / 18):  # 2 * np.pi / 18 gives a 10 degree increment
+            x_end = 127 * np.cos(theta)
+            y_end = 127 * np.sin(theta)
+            fig.add_trace(go.Scatter(x=[0, x_end], y=[0, y_end], mode='lines',
+                                      line=dict(color='rgba(128, 128, 128, 0.5)', width=1, dash='dot'), showlegend=False))
+
+        # Add a circumference
+        fig.add_shape(
+            type="circle",
+            xref="x", yref="y",
+            x0=-127, y0=-127, x1=127, y1=127,
+            line=dict(color="black", width=2, dash="dash"),
+        )
+
+        # Define the plot limits and the axis names
+        fig.update_layout(
+            xaxis=dict(range=[-128, 128], title='a'),
+            yaxis=dict(range=[-128, 128], title='b'),
+            autosize=False,
+            width=800,
+            height=800,
+        )
+
+        # Show the plot
+        fig.show()
+
+    @property
+    def PlotaL(self):
+        lb_values = self.data[['a', 'L']].values
+        rgb_colors = self.data[['R', 'G', 'B']].values / 255.0
+        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=lb_values[:,0],
+            y=lb_values[:,1],
+            customdata=customdata,
+            mode='markers',
+            marker=dict(
+                size=6,
+                color=['rgb({},{},{})'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in rgb_colors],
+                opacity=1.0
+            ),
+            hovertemplate="<b>Filename</b>: %{customdata[0]}<br><b>Mask Index</b>: %{customdata[1]}<br><b>L</b>: %{customdata[2]:.2f}<br><b>A</b>: %{customdata[3]:.2f}<br><b>B</b>: %{customdata[4]:.2f}<br><b>C</b>: %{customdata[5]:.2f}<br><b>H</b>: %{customdata[6]:.2f}<extra></extra>",
+        ))
+
+        fig.add_trace(go.Scatter(x=[0, 0], y=[0, 100], mode='lines', line=dict(color='black', width=1)))
+        fig.add_trace(go.Scatter(x=[-127, 127], y=[50, 50], mode='lines', line=dict(color='black', width=1)))
+
+        # Add an ellipse
+        theta = np.linspace(0, 2*np.pi, 100)
+        a = 127
+        b = 50
+        x = a * np.cos(theta)
+        y = b * np.sin(theta) + 50  # Centered at L = 50
+        fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='black', width=2, dash='dash')))
+
+        fig.update_layout(
+            xaxis=dict(range=[-128, 128], title='a'),
+            yaxis=dict(range=[0, 100], title='L'),
+            autosize=False,
+            width=800,
+            height=800,
+        )
+        fig.show()
+
+    @property
+    def elbow_method(self):
+        # Convert colors to a numpy array for clustering
+        color_values = self.data[['L', 'a', 'b']].values
+
+        # Replace NaN values with the column mean
+        imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
+        color_values_imputed = imputer.fit_transform(color_values)
+
+        # Calculate the optimal number of clusters using the elbow method
+        distortions = []
+        K = range(1, 11)
+        for k in K:
+            kmeanModel = KMeans(n_clusters=k)
+            kmeanModel.fit(color_values_imputed)
+            distortions.append(sum(np.min(cdist(color_values_imputed, kmeanModel.cluster_centers_, 'euclidean'), axis=1)) / color_values_imputed.shape[0])
+
+        # Calculate the second derivative (approximate) of the distortions
+        second_derivative = [0] + [distortions[i] - 2*distortions[i-1] + distortions[i-2] for i in range(2, len(distortions))]
+
+        # The optimal number of clusters is where the second derivative is maximum
+        optimal_k = np.argmax(second_derivative) + 1
+
+        print(f'Optimal number of clusters: {optimal_k}')
+
+        # Create the plot
+        fig = go.Figure(data=go.Scatter(x=list(K), y=distortions, mode='lines+markers'))
+
+        # Customize aspect
+        fig.update_layout(title='Elbow Method',
+                          xaxis=dict(title='Number of clusters (k)'),
+                          yaxis=dict(title='Distortion Score'))
+
+        fig.show()
+
+
+    def clusters(self, n_clusters):
+        # Convert color values to a NumPy array for clustering
+        color_values = self.data[['L', 'a', 'b']].values
+
+        # Replace NaN values with the column mean
+        imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
+        color_values_imputed = imputer.fit_transform(color_values)
+
+        # Perform k-means clustering
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(color_values_imputed)
+
+        # Make a copy of the original DataFrame
+        modified_data = self.data.copy()
+
+        # Add the cluster labels to the new DataFrame
+        modified_data['cluster'] = kmeans.labels_
+
+        # Save the new DataFrame to an Excel file
+        modified_data.to_excel('cluster_data.xlsx', index=False)
+
+        # Return the new DataFrame
+        return modified_data
+
+    def PlotClusterCIELab(self, n_clusters):
+        # First, we obtain the dataframe with the cluster assignment
+        clustered_data = self.clusters(n_clusters)
+
+        # Get the LAB colors directly from the DataFrame
+        lab_colors = clustered_data[['L', 'a', 'b']].values
+        rgb_colors = clustered_data[['R', 'G', 'B']].values / 255.0  # Normalize to [0, 1]
+
+        # Prepare the custom data
+        customdata = clustered_data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H', 'cluster']].values
+
+        # Create the 3D plot
+        fig = go.Figure()
+
+        # Define marker shapes
+        marker_shapes = ['circle','cross','square','x','diamond']
+
+        # Add the colors
+        for i in range(n_clusters):
+            mask = customdata[:,7] == i
+            fig.add_trace(go.Scatter3d(
+                x=lab_colors[mask, 1],
+                y=lab_colors[mask, 2],
+                z=lab_colors[mask, 0],
+                customdata=customdata[mask],  # Add the mask indices as custom data
+                mode='markers',
+                marker=dict(
+                    size=6,
+                    color=['rgb({},{},{})'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in rgb_colors[mask]],
+                    opacity=1.0,
+                    symbol=marker_shapes[i % len(marker_shapes)]  # Use a different marker shape for each cluster
+                ),
+                hovertemplate="<b>Filename</b>: %{customdata[0]}<br><b>Mask Index</b>: %{customdata[1]}<br><b>L</b>: %{customdata[2]:.2f}<br><b>A</b>: %{customdata[3]:.2f}<br><b>B</b>: %{customdata[4]:.2f}<br><b>C</b>: %{customdata[5]:.2f}<br><b>H</b>: %{customdata[6]:.2f}<br><b>Cluster</b>: %{customdata[7]}<extra></extra>",
+            ))
+
+        # Add the cutting ellipses
+        theta = np.linspace(0, 2*np.pi, 100)
+
+        # AB plane centered at (0,0,50)
+        x = 127 * np.cos(theta)
+        y = 127 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=x, y=y, z=50*np.ones_like(x), mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # LB plane centered at (0,0,50)
+        x = 127 * np.cos(theta)
+        z = 50 + 50 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=x, y=0*np.ones_like(x), z=z, mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # LA plane centered at (0,0,50)
+        y = 127 * np.cos(theta)
+        z = 50 + 50 * np.sin(theta)
+        fig.add_trace(go.Scatter3d(x=0*np.ones_like(y), y=y, z=z, mode='lines', line=dict(color='black', width=2, dash='dash'),showlegend=False))
+
+        # Create the AB plane as a 3D mesh
+        t = np.linspace(0, 1, 100)  # Parameter for interpolation
+        X, Y = np.meshgrid(np.linspace(-127, 127, 100), np.linspace(-127, 127, 100))  # Create a grid over the entire AB space
+        Z = 50 * np.ones_like(X)
+        fig.add_trace(go.Mesh3d(x=X.flatten(), y=Y.flatten(), z=Z.flatten(), opacity=0.2, color='gray',hoverinfo='skip'))
+
+        # Añade los segmentos de línea
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 127], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento AB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, -127], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento AB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[100, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LB
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[0, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LB
+        fig.add_trace(go.Scatter3d(x=[0, 127], y=[0, 0], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LA
+        fig.add_trace(go.Scatter3d(x=[0, -127], y=[0, 0], z=[50, 50], mode='lines', line=dict(color='black', width=2),showlegend=False)) # segmento LA
+
+        # Define los límites del gráfico y los nombres de los ejes
+        fig.update_layout(
+            autosize=False,
+            width=1000,
+            height=1000,
+            scene=dict(
+                xaxis=dict(range=[-128, 128], title='a'),
+                yaxis=dict(range=[-128, 128], title='b'),
+                zaxis=dict(range=[0, 100], title='L')
+            ),
+        )
+
+        # Muestra el gráfico
+        fig.show()
