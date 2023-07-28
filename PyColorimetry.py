@@ -530,10 +530,10 @@ class Images:
         combined_df = pd.concat([theoretical_df, experimental_df.reset_index(drop=True)], axis=1)
 
         # Calculate the percentage error between RT and R and add it as the ER column
-        combined_df['ΔR'] = np.abs(combined_df['RT'] - combined_df['R']) 
+        combined_df['ΔR'] = np.abs(combined_df['RT'] - combined_df['R'])
 
         # Calculate the percentage error between GT and G and add it as the EG column
-        combined_df['ΔG'] = np.abs(combined_df['GT'] - combined_df['G']) 
+        combined_df['ΔG'] = np.abs(combined_df['GT'] - combined_df['G'])
 
         # Calculate the percentage error between BT and B and add it as the EB column
         combined_df['ΔB'] = np.abs(combined_df['BT'] - combined_df['B'])
@@ -542,7 +542,7 @@ class Images:
 
         combined_df['Δa'] = np.abs(combined_df['aT'] - combined_df['a'])
 
-        combined_df['Δb'] = np.abs(combined_df['bT'] - combined_df['b']) 
+        combined_df['Δb'] = np.abs(combined_df['bT'] - combined_df['b'])
 
         # Calculate the Euclidean distance
         combined_df['ΔE'] = np.sqrt(combined_df['ΔL']**2 + combined_df['Δa']**2 + combined_df['Δb']**2)
@@ -575,7 +575,7 @@ class Data:
 
     @property
     def PlotCIELab(self):
-        first_column_name = df.columns[0]
+        first_column_name = self.data.columns[0]
 
         # Get the LAB colors directly from the DataFrame
         lab_colors = self.data[['L', 'a', 'b']].values
@@ -652,7 +652,7 @@ class Data:
 
     @property
     def Plotab(self):
-        first_column_name = df.columns[0]
+        first_column_name = self.data.columns[0]
 
         # Get the AB values directly from the DataFrame
         ab_values = self.data[['a', 'b']].values
@@ -711,7 +711,7 @@ class Data:
 
     @property
     def PlotaL(self):
-        first_column_name = df.columns[0]
+        first_column_name = self.data.columns[0]
 
         lb_values = self.data[['a', 'L']].values
         rgb_colors = self.data[['R', 'G', 'B']].values / 255.0
@@ -891,3 +891,4 @@ class Data:
 
         # Muestra el gráfico
         fig.show()
+
