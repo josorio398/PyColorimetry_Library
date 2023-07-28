@@ -359,6 +359,29 @@ class Images:
 
         return xyz
 
+
+    def generate_XYZ_dataframe(self, reference_mask_matrix, masks, xyz_from_rgb=None):
+        # Initialize a list to store the XYZ values
+        XYZ_values = []
+
+        # Iterate over the masks
+        for i in range(len(masks)):
+            # Calculate the XYZ values of the current mask
+            XYZ = self.rgb2xyz_custom(i, reference_mask_matrix, masks, xyz_from_rgb)
+
+            # Append the XYZ values to the list
+            XYZ_values.append([i] + list(XYZ))
+
+        # Convert the list of XYZ values into a pandas DataFrame
+        df = pd.DataFrame(XYZ_values, columns=['Mask', 'X', 'Y', 'Z'])
+
+        # Save the DataFrame as an Excel file
+        df.to_excel("XYZ_masks.xlsx", index=False)
+
+        # Return the DataFrame
+        return df
+
+
     def rgb2lab_custom(self, target_mask_index, reference_mask_matrix, masks, xyz_from_rgb=None):
         """
         Convert an RGB image to a LAB image.
@@ -464,6 +487,80 @@ class Images:
         # Return the DataFrame
         return df
 
+    def pantone_summary(self, theoretical_csv_path, mask_order, reference_mask_matrix, masks, xyz_from_rgb=None):
+        # Load the theoretical values from the CSV file
+        theoretical_df = pd.read_csv(theoretical_csv_path)
+
+        # Generate the experimental DataFrame
+        rgb_df = self.generate_RGB_dataframe(reference_mask_matrix, masks)
+        xyz_df = self.generate_XYZ_dataframe(reference_mask_matrix, masks, xyz_from_rgb)
+        labch_df = self.generate_LABCH_dataframe(reference_mask_matrix, masks, xyz_from_rgb)
+
+        # Rename the columns in rgb_df
+        #rgb_df = rgb_df.rename(columns={'R': 'RE', 'G': 'GE', 'B': 'BE'})
+
+        # Drop the 'Mask' column from xyz_df and labch_df
+        xyz_df = xyz_df.drop(columns=['Mask'])
+        labch_df = labch_df.drop(columns=['Mask'])
+
+        # Combine the RGB, XYZ, and LABCH dataframes
+        experimental_df = pd.concat([rgb_df, xyz_df, labch_df], axis=1)
+
+        # Create a mask order DataFrame
+        mask_order_df = pd.DataFrame({'Mask': mask_order, 'order': range(len(mask_order))})
+
+        # Convert 'Mask' column to int in both DataFrames
+        mask_order_df['Mask'] = mask_order_df['Mask'].astype(int)
+        experimental_df['Mask'] = experimental_df['Mask'].astype(int)
+
+        # Merge the experimental_df with mask_order_df
+        experimental_df = pd.merge(experimental_df, mask_order_df, on='Mask')
+
+        # Sort values by 'order' column and drop 'order' column
+        experimental_df = experimental_df.sort_values('order').drop('order', axis=1)
+
+        # Add the mask areas to the DataFrame
+        mask_areas_df = self.calculate_mask_areas(masks)
+        mask_areas_df['Mask'] = mask_areas_df['Mask'].astype(int)
+
+        # Merge the combined_df with mask_areas_df
+        experimental_df = pd.merge(experimental_df, mask_areas_df, on='Mask')
+
+        # Concatenate the theoretical and experimental DataFrames
+        combined_df = pd.concat([theoretical_df, experimental_df.reset_index(drop=True)], axis=1)
+
+        # Calculate the percentage error between RT and R and add it as the ER column
+        combined_df['ΔR'] = np.abs(combined_df['RT'] - combined_df['R']) 
+
+        # Calculate the percentage error between GT and G and add it as the EG column
+        combined_df['ΔG'] = np.abs(combined_df['GT'] - combined_df['G']) 
+
+        # Calculate the percentage error between BT and B and add it as the EB column
+        combined_df['ΔB'] = np.abs(combined_df['BT'] - combined_df['B'])
+
+        combined_df['ΔL'] = np.abs(combined_df['LT'] - combined_df['L'])
+
+        combined_df['Δa'] = np.abs(combined_df['aT'] - combined_df['a'])
+
+        combined_df['Δb'] = np.abs(combined_df['bT'] - combined_df['b']) 
+
+        # Calculate the Euclidean distance
+        combined_df['ΔE'] = np.sqrt(combined_df['ΔL']**2 + combined_df['Δa']**2 + combined_df['Δb']**2)
+
+        # Calculate the MAE for each error column and save it in a dictionary
+        means = combined_df[['ΔR', 'ΔG', 'ΔB', 'ΔL', 'Δa', 'Δb','ΔE']].mean()
+
+        # Create a new DataFrame for the MEANS and VALUES
+        mape_df = pd.DataFrame({'MAE': means.index, 'VALUES': means.values})
+
+        # Assign 'MAE' and 'VALUES' as two new columns in the existing dataframe
+        combined_df = combined_df.assign(MAE=np.nan, VALUES=np.nan)
+        combined_df.loc[:len(means)-1, ['MAE', 'VALUES']] = mape_df.values
+
+        # Save the DataFrame to an Excel file
+        combined_df.to_excel("pantone_summary.xlsx", index=False)
+
+        return combined_df
 
 class Data:
     def __init__(self, data):
@@ -478,12 +575,14 @@ class Data:
 
     @property
     def PlotCIELab(self):
+        first_column_name = df.columns[0]
+
         # Get the LAB colors directly from the DataFrame
         lab_colors = self.data[['L', 'a', 'b']].values
         rgb_colors = self.data[['R', 'G', 'B']].values / 255.0  # Normalize to [0, 1]
 
         # Prepare the mask indices as custom data
-        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+        customdata = self.data[[first_column_name, 'Mask', 'L', 'a', 'b', 'C', 'H']].values
 
         # Create the 3D plot
         fig = go.Figure()
@@ -553,12 +652,14 @@ class Data:
 
     @property
     def Plotab(self):
+        first_column_name = df.columns[0]
+
         # Get the AB values directly from the DataFrame
         ab_values = self.data[['a', 'b']].values
         rgb_colors = self.data[['R', 'G', 'B']].values / 255.0  # Normalize to [0, 1]
 
         # Prepare the mask indices as custom data
-        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+        customdata = self.data[[first_column_name, 'Mask', 'L', 'a', 'b', 'C', 'H']].values
 
         # Create the 2D plot
         fig = go.Figure()
@@ -610,9 +711,11 @@ class Data:
 
     @property
     def PlotaL(self):
+        first_column_name = df.columns[0]
+
         lb_values = self.data[['a', 'L']].values
         rgb_colors = self.data[['R', 'G', 'B']].values / 255.0
-        customdata = self.data[['Filename', 'Mask', 'L', 'a', 'b', 'C', 'H']].values
+        customdata = self.data[[first_column_name, 'Mask', 'L', 'a', 'b', 'C', 'H']].values
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
