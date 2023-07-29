@@ -1,40 +1,84 @@
 PyColorimetry
 =============
 
-**PyColorimetry** is a highly versatile Python library designed to perform colorimetry analysis on images. Leveraging OpenAI's LangSAM model, this library allows you to extract and analyze color information based on textual prompts.
+PyColorimetry is a powerful Python library designed for both educators and students in the field of colorimetry. The library processes images using semantic segmentation, leveraging the GroundingDino and SAM (Segment Anything Models) models. After segmentation, the images are normalized, and computations of RGB, tristimulus XYZ values, and conversion to the CIELAB space are performed. PyColorimetry also provides functionality for visualizing colors in the CIELAB color space. This library takes advantage of modern GPU computing power to provide efficient and accurate colorimetric computations. PyColorimetry aims to make complex colorimetric concepts more accessible, enabling deeper understanding and fostering innovation in color science.
 
-This library is perfect for researchers, digital artists, designers, and anyone else who needs precise and detailed color information from images.
+|Python| |Pandas| |Numpy| |Matplotlib| |Scipy| |Skimage| |Sklearn| |Colab| |Torch|
 
-Key Features
-------------
+.. |Python| image:: https://img.shields.io/badge/python%20-%2314354C.svg?&style=flat&logo=python&logoColor=white
+  :target: https://www.python.org/
+  :alt: Python
 
-1. Extract color information from images based on textual prompts.
-2. Generate color masks for specific color areas in an image.
+.. |Pandas| image:: https://img.shields.io/badge/Pandas%20-2C2D72?style=flat&logo=pandas&logoColor=white
+  :target: https://pandas.pydata.org/
+  :alt: Pandas
 
-Installation
+.. |Numpy| image:: https://img.shields.io/badge/numpy%20-%230095D5.svg?&style=flat&logo=numpy&logoColor=white
+  :target: https://numpy.org/
+  :alt: Numpy
+
+.. |Matplotlib| image:: https://img.shields.io/badge/Matplotlib%20-008080?style=flat&logo=matplotlib&logoColor=white
+  :target: https://matplotlib.org/
+  :alt: Matplotlib
+
+.. |Scipy| image:: https://img.shields.io/badge/scipy%20-00599C?style=flat&logo=scipy&logoColor=white
+  :target: https://scipy.org/
+  :alt: Scipy
+
+.. |Skimage| image:: https://img.shields.io/badge/skimage%20--FFAD00?style=flat&logo=scikit-image&logoColor=white
+  :target: https://scikit-image.org/
+  :alt: Skimage
+
+.. |Sklearn| image:: https://img.shields.io/badge/Sklearn%20-F7931E?style=flat&logo=scikit-learn&logoColor=white
+  :target: https://scikit-learn.org/
+  :alt: Sklearn
+
+.. |Colab| image:: https://img.shields.io/badge/Colab%20--FFAD00?style=flat&logo=googlecolab&logoColor=white
+  :target: https://colab.research.google.com/
+  :alt: Colab
+
+.. |Torch| image:: https://img.shields.io/badge/Torch%20-EE4C2C?style=flat&logo=pytorch&logoColor=white
+  :target: https://pytorch.org/
+  :alt: Torch
+
+Installation 
 ============
 
-You can install PyColorimetry using pip...
+The PyColorimetry library may be installed using pip:
+  
+.. code:: python
 
-.. code:: bash
+    !pip install PyColorimetry
 
-    pip install PyColorimetry
-
-Example Usage
-=============
-
-Here is a simple example of how to use PyColorimetry:
+You also need to download the weights for the SAM model:
 
 .. code:: python
 
-    from PyColorimetry import Images
+    !wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 
-    image = Images('path_to_your_image.jpg')
-    image.show
+To import the library, you can use:
 
-    text_prompt = "small white rectangle"
-    reference_mask_image  = image.reference_mask(text_prompt, mask_index=0, matrix = False)
-    reference_mask_matrix = image.reference_mask(text_prompt, mask_index=0, matrix = True)
+.. code:: python
 
-    df = image.summary(reference_mask_matrix, masks)
-    print(df)
+    from PyColorimetry.ColorimetricAnalysis import *
+
+Requirements
+============
+
+- Python 3.6 or later
+- GPU support
+- Libraries: Pandas, Numpy, Matplotlib, Scipy, Skimage, Sklearn, Torch
+- SAM (Segment Anything Models)
+
+Maintainer
+==========
+
+- **Prof. Jhonny Osorio Gallego, M.Sc.**
+
+https://github.com/josorio398
+
+Universidad de América
+
+jhonny.osorio@profesores.uamerica.edu.co
+
+
