@@ -68,7 +68,8 @@ Requirements
 - Python 3.6 or later
 - GPU support
 - Libraries: Pandas, Numpy, Matplotlib, Scipy, Skimage, Sklearn, Torch
-- SAM (Segment Anything Models)
+- Models: SAM (Segment Anything Models), GroundingDino
+- Installation support is currently provided for Google Colab
 
 Maintainer
 ==========
