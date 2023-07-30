@@ -1,0 +1,3 @@
+groundingdino-py
+segment-anything-py==1.0
+opencv-python
