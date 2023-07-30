@@ -1,3 +1,3 @@
-import CalculusPy
+import PyColorimetry
 
 __all__=['ColorimetricAnalysis']
