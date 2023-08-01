@@ -48,7 +48,8 @@ The PyColorimetry library may be installed using pip:
   
 .. code:: python
 
-    !pip install PyColorimetry
+    !git clone https://github.com/josorio398/PyColorimetry_Library /content/PyColorimetry_Library
+    !pip install -r /content/PyColorimetry_Library/requirements.txt
 
 You also need to download the weights for the SAM model:
 
