@@ -83,4 +83,16 @@ Universidad de América
 
 jhonny.osorio@profesores.uamerica.edu.co
 
+Citation
+
+========
+
+
+
+To cite SolubilityModels in publications use:
+
+
+
+*J. Osorio Gallego, PyColorimetry, Python Package. (2023). https://github.com/josorio398/PyColorimetry_Library*
+
 
