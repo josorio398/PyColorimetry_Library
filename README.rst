@@ -1,7 +1,7 @@
 PyColorimetry
 =============
 
-PyColorimetry is a powerful Python library designed for both educators and students in the field of colorimetry. The library processes images using semantic segmentation, leveraging the GroundingDino and SAM (Segment Anything Models) models. After segmentation, the images are normalized, and computations of RGB, tristimulus XYZ values, and conversion to the CIELAB space are performed. PyColorimetry also provides functionality for visualizing colors in the CIELAB color space. This library takes advantage of modern GPU computing power to provide efficient and accurate colorimetric computations. PyColorimetry aims to make complex colorimetric concepts more accessible, enabling deeper understanding and fostering innovation in color science.
+PyColorimetry is a powerful Python library designed for both educators and students in the field of colorimetry. The library processes images using semantic segmentation. After segmentation, the images are normalized, and computations of RGB, tristimulus XYZ values, and conversion to the CIELAB space are performed. PyColorimetry also provides functionality for visualizing colors in the CIELAB color space. This library takes advantage of modern GPU computing power to provide efficient and accurate colorimetric computations. PyColorimetry aims to make complex colorimetric concepts more accessible, enabling deeper understanding and fostering innovation in color science.
 
 |Python| |Pandas| |Numpy| |Matplotlib| |Scipy| |Skimage| |Sklearn| |Colab| |Torch|
 
