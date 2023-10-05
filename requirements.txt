@@ -1,1 +1,2 @@
+huggingface-hub==0.16.4
 PyColorimetry
