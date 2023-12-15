@@ -41,7 +41,6 @@ PyColorimetry is a powerful Python library designed for both educators and stude
   :target: https://pytorch.org/
   :alt: Torch
 
-<center><img src="https://github.com/josorio398/Hyperspectral_Images_Analysis/blob/main/datalore.png?raw=true" alt="imafinal" border="0" width =1000"></center>
 
 .. image:: https://github.com/josorio398/Solubility_Models_Library/blob/main/Test%20data/images/relative.png?raw=true
    :height: 350
