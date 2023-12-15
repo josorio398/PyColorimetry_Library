@@ -42,7 +42,7 @@ PyColorimetry is a powerful Python library designed for both educators and stude
   :alt: Torch
 
 
-.. image:: https://github.com/josorio398/Solubility_Models_Library/blob/main/Test%20data/images/relative.png?raw=true
+.. image:: https://github.com/josorio398/PyColorimetry_Library/blob/master/images/imagen_librer%C3%ADa.png?raw=true
    :height: 350
    :align: center
    :alt: alternate text 
